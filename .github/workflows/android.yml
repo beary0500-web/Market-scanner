@@ -58,7 +58,25 @@ jobs:
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
             "platforms;android-35" \
             "build-tools;35.0.0"
+      - name: Fix JVM target compatibility
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
 
+          p = Path("app/build.gradle")
+          s = p.read_text()
+
+          s = s.replace(
+              "JavaVersion.VERSION_1_8",
+              "JavaVersion.VERSION_17"
+          )
+          s = s.replace('jvmTarget = "1.8"', 'jvmTarget = "17"')
+          s = s.replace("jvmTarget = '1.8'", "jvmTarget = '17'")
+
+          p.write_text(s)
+          print("Java/Kotlin JVM target aligned to 17")
+          PY
+          
       - name: Build APK
         run: gradle assembleDebug
 
