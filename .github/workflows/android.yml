@@ -14,6 +14,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -23,11 +26,14 @@ jobs:
         run: |
           mkdir -p /tmp/ms
           unzip -q market_scanner_android_project.zip -d /tmp/ms
-          ROOT=$(find /tmp/ms -name settings.gradle -o -name settings.gradle.kts | head -n 1 | xargs dirname)
+
+          ROOT=$(find /tmp/ms \( -name settings.gradle -o -name settings.gradle.kts \) -type f | head -n 1 | xargs -r dirname)
+
           if [ -z "$ROOT" ]; then
             echo "Android project settings.gradle not found"
             exit 1
           fi
+
           cp -a "$ROOT"/. .
 
       - name: Setup Java
@@ -41,11 +47,17 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Configure Android SDK
+        shell: bash
+        run: |
+          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
 
-      - name: Install SDK
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
+
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            "platforms;android-35" \
+            "build-tools;35.0.0"
 
       - name: Build APK
         run: gradle assembleDebug
