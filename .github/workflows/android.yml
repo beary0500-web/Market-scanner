@@ -1,14 +1,15 @@
 
-name: Build Market Scanner APK
+name: Build Market Scanner v3 APK
 
 on:
   workflow_dispatch:
   push:
     branches:
-      - main
       - v2.1-dev
+      - v3.0-dev
+      - main
     paths:
-      - 'Market_Scanner_v2.1_GitHub_Source.zip'
+      - 'Market_Scanner_v3.0_GitHub_Source.zip'
       - '.github/workflows/android.yml'
 
 permissions:
@@ -17,22 +18,20 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      ANDROID_HOME: /usr/local/lib/android/sdk
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Extract v2.1 source package
+      - name: Extract v3.0 project
         shell: bash
         run: |
-          test -f Market_Scanner_v2.1_GitHub_Source.zip
-          mkdir -p /tmp/market-scanner-source
-          unzip -q Market_Scanner_v2.1_GitHub_Source.zip -d /tmp/market-scanner-source
-          test -f /tmp/market-scanner-source/settings.gradle
-          test -f /tmp/market-scanner-source/app/build.gradle
-          cp -a /tmp/market-scanner-source/. .
+          test -f Market_Scanner_v3.0_GitHub_Source.zip
+          mkdir -p /tmp/market-scanner-v3
+          unzip -q Market_Scanner_v3.0_GitHub_Source.zip -d /tmp/market-scanner-v3
+          test -f /tmp/market-scanner-v3/settings.gradle
+          test -f /tmp/market-scanner-v3/app/build.gradle
+          test -f /tmp/market-scanner-v3/app/src/main/assets/index.html
+          cp -a /tmp/market-scanner-v3/. .
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -45,20 +44,18 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Configure Android SDK
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+
+      - name: Verify v3.0 project
         shell: bash
         run: |
-          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
-          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
-          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
-            "platforms;android-35" \
-            "build-tools;35.0.0"
-
-      - name: Verify project configuration
-        run: |
-          grep -q "versionName '2.1-dev'" app/build.gradle
+          grep -q "versionName '3.0-dev'" app/build.gradle
           grep -q "jvmTarget = '17'" app/build.gradle
+          grep -q 'Market Scanner v3.0' app/src/main/assets/index.html
 
       - name: Build debug APK
         run: gradle --no-daemon assembleDebug
@@ -66,6 +63,6 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: market-scanner-v2.1-debug-apk
+          name: market-scanner-v3-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
