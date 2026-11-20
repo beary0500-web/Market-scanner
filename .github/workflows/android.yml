@@ -6,6 +6,10 @@ on:
   push:
     branches:
       - main
+      - v2.1-dev
+    paths:
+      - 'Market_Scanner_v2.1_GitHub_Source.zip'
+      - '.github/workflows/android.yml'
 
 permissions:
   contents: read
@@ -13,7 +17,6 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     env:
       ANDROID_HOME: /usr/local/lib/android/sdk
 
@@ -21,20 +24,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Extract Android project
+      - name: Extract v2.1 source package
         shell: bash
         run: |
-          mkdir -p /tmp/ms
-          unzip -q market_scanner_android_project.zip -d /tmp/ms
-
-          ROOT=$(find /tmp/ms \( -name settings.gradle -o -name settings.gradle.kts \) -type f | head -n 1 | xargs -r dirname)
-
-          if [ -z "$ROOT" ]; then
-            echo "Android project settings.gradle not found"
-            exit 1
-          fi
-
-          cp -a "$ROOT"/. .
+          test -f Market_Scanner_v2.1_GitHub_Source.zip
+          mkdir -p /tmp/market-scanner-source
+          unzip -q Market_Scanner_v2.1_GitHub_Source.zip -d /tmp/market-scanner-source
+          test -f /tmp/market-scanner-source/settings.gradle
+          test -f /tmp/market-scanner-source/app/build.gradle
+          cp -a /tmp/market-scanner-source/. .
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -52,37 +50,22 @@ jobs:
         run: |
           echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
           echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
-
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
-
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
             "platforms;android-35" \
             "build-tools;35.0.0"
-      - name: Fix JVM target compatibility
+
+      - name: Verify project configuration
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
+          grep -q "versionName '2.1-dev'" app/build.gradle
+          grep -q "jvmTarget = '17'" app/build.gradle
 
-          p = Path("app/build.gradle")
-          s = p.read_text()
-
-          s = s.replace(
-              "JavaVersion.VERSION_1_8",
-              "JavaVersion.VERSION_17"
-          )
-          s = s.replace('jvmTarget = "1.8"', 'jvmTarget = "17"')
-          s = s.replace("jvmTarget = '1.8'", "jvmTarget = '17'")
-
-          p.write_text(s)
-          print("Java/Kotlin JVM target aligned to 17")
-          PY
-          
-      - name: Build APK
-        run: gradle assembleDebug
+      - name: Build debug APK
+        run: gradle --no-daemon assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: market-scanner-apk
+          name: market-scanner-v2.1-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
